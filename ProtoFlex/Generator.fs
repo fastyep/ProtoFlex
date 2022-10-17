@@ -23,6 +23,8 @@ open System.Threading.Tasks
 [<Literal>]
 let private space = "    "
 
+let private split (a: string) = a.Split '.' |> Seq.last
+
 let rec genType (f: FieldDescriptorProto) =
     match f.``type`` with
     | FieldDescriptorProto.Type.TypeDouble -> nameof float
@@ -35,7 +37,7 @@ let rec genType (f: FieldDescriptorProto) =
     | FieldDescriptorProto.Type.TypeBool -> nameof bool
     | FieldDescriptorProto.Type.TypeString -> nameof string
     | FieldDescriptorProto.Type.TypeGroup -> nameof double
-    | FieldDescriptorProto.Type.TypeMessage -> nameof double
+    | FieldDescriptorProto.Type.TypeMessage -> split f.TypeName
     | FieldDescriptorProto.Type.TypeBytes -> "byte []"
     | FieldDescriptorProto.Type.TypeUint32 -> nameof uint32
     | FieldDescriptorProto.Type.TypeEnum -> nameof double
@@ -78,8 +80,6 @@ let genService (srv: ServiceDescriptorProto) =
             .AppendLine($"type I{srv.Name} =")
 
     for rpc in srv.Methods do
-        let split (a: string) = a.Split '.' |> Seq.last
-
         sb.AppendLine $"{space}abstract member {rpc.Name}: {split rpc.InputType} -> Task<{split rpc.OutputType}>"
         |> ignore
 
