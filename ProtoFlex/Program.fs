@@ -17,10 +17,13 @@ type CliArguments =
             | OutputFile _ -> "path where to write final FSharp types bundle."
             | Namespace _ -> "namespace that will be used in final bundle file."
 
+[<Literal>]
+let program_name = "pflex"
+
 [<EntryPoint>]
 let main args =
     let parser =
-        ArgumentParser.Create<CliArguments>(programName = "flex")
+        ArgumentParser.Create<CliArguments> program_name
 
     try
         let result = parser.ParseCommandLine args
@@ -41,7 +44,9 @@ let main args =
             | Error err ->
                 printfn "Errors during parsing proto file: "
                 err |> Seq.iter (printfn "\t%A")
-        | _ -> printfn "Output and at least one Input files should be specified!"
+        | _ ->
+            printfn
+                $"Output and at least one Input files should be specified! Use {program_name} --help to check list of available arguments."
     with
     | :? ArguParseException as e -> printfn $"%s{e.Message}"
 
