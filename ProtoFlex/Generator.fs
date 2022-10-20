@@ -26,38 +26,43 @@ let private space = "    "
 let private split (a: string) = a.Split '.' |> Seq.last
 
 let rec genType (f: FieldDescriptorProto) =
-    match f.``type`` with
-    | FieldDescriptorProto.Type.TypeDouble -> nameof float
-    | FieldDescriptorProto.Type.TypeFloat -> nameof float32
-    | FieldDescriptorProto.Type.TypeInt64 -> nameof int64
-    | FieldDescriptorProto.Type.TypeUint64 -> nameof uint64
-    | FieldDescriptorProto.Type.TypeInt32 -> nameof int
-    | FieldDescriptorProto.Type.TypeFixed64 -> nameof uint64
-    | FieldDescriptorProto.Type.TypeFixed32 -> nameof uint32
-    | FieldDescriptorProto.Type.TypeBool -> nameof bool
-    | FieldDescriptorProto.Type.TypeString -> nameof string
-    | FieldDescriptorProto.Type.TypeGroup -> nameof double
-    | FieldDescriptorProto.Type.TypeMessage -> split f.TypeName
-    | FieldDescriptorProto.Type.TypeBytes -> "byte []"
-    | FieldDescriptorProto.Type.TypeUint32 -> nameof uint32
-    | FieldDescriptorProto.Type.TypeEnum -> split f.TypeName
-    | FieldDescriptorProto.Type.TypeSfixed32 -> nameof int
-    | FieldDescriptorProto.Type.TypeSfixed64 -> nameof int64
-    | FieldDescriptorProto.Type.TypeSint32 -> nameof int
-    | FieldDescriptorProto.Type.TypeSint64 -> nameof int
-    | _ -> nameof obj
-    
+    (f.label,
+     match f.``type`` with
+     | FieldDescriptorProto.Type.TypeDouble -> nameof float
+     | FieldDescriptorProto.Type.TypeFloat -> nameof float32
+     | FieldDescriptorProto.Type.TypeInt64 -> nameof int64
+     | FieldDescriptorProto.Type.TypeUint64 -> nameof uint64
+     | FieldDescriptorProto.Type.TypeInt32 -> nameof int
+     | FieldDescriptorProto.Type.TypeFixed64 -> nameof uint64
+     | FieldDescriptorProto.Type.TypeFixed32 -> nameof uint32
+     | FieldDescriptorProto.Type.TypeBool -> nameof bool
+     | FieldDescriptorProto.Type.TypeString -> nameof string
+     | FieldDescriptorProto.Type.TypeGroup -> nameof double
+     | FieldDescriptorProto.Type.TypeMessage -> split f.TypeName
+     | FieldDescriptorProto.Type.TypeBytes -> "byte []"
+     | FieldDescriptorProto.Type.TypeUint32 -> nameof uint32
+     | FieldDescriptorProto.Type.TypeEnum -> split f.TypeName
+     | FieldDescriptorProto.Type.TypeSfixed32 -> nameof int
+     | FieldDescriptorProto.Type.TypeSfixed64 -> nameof int64
+     | FieldDescriptorProto.Type.TypeSint32 -> nameof int
+     | FieldDescriptorProto.Type.TypeSint64 -> nameof int
+     | _ -> nameof obj)
+    |> function
+        | FieldDescriptorProto.Label.LabelRepeated, b -> $"List<{b}>"
+        | _, b -> b
+
 let genEnumType (en: EnumDescriptorProto) =
     let sb =
         StringBuilder()
             .AppendLine("[<DataContract>]")
             .AppendLine($"type {en.Name} =")
-            
+
     for op in en.Values do
-        sb.AppendLine $"{space}| {op.Name} = {op.Number}" |> ignore
-            
+        sb.AppendLine $"{space}| {op.Name} = {op.Number}"
+        |> ignore
+
     string sb
-    
+
 
 let genMsgType (msg: DescriptorProto) =
     let sb =
@@ -121,7 +126,7 @@ let genTemplate (name_space: string option) (protos: list<string * TextReader>) 
         for file in set.Files do
             for en in file.EnumTypes do
                 genEnumType en |> sb.AppendLine |> ignore
-            
+
             for msg in file.MessageTypes do
                 genMsgType msg |> sb.AppendLine |> ignore
 
