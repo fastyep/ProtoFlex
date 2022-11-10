@@ -91,10 +91,10 @@ let genMsgType (msg: DescriptorProto) =
 
     string sb
 
-let genService (srv: ServiceDescriptorProto) =
+let genService package (srv: ServiceDescriptorProto) =
     let sb =
         StringBuilder()
-            .AppendLine($"[<ServiceContract(Name = \"{srv.Name}\")>]")
+            .AppendLine($"[<ServiceContract(Name = \"%s{package}.{srv}\")>]")
             .AppendLine($"type I{srv.Name} =")
 
     for rpc in srv.Methods do
@@ -131,6 +131,6 @@ let genTemplate (name_space: string option) (protos: list<string * TextReader>) 
                 genMsgType msg |> sb.AppendLine |> ignore
 
             for srv in file.Services do
-                genService srv |> sb.Append |> ignore
+                genService file.Package srv |> sb.Append |> ignore
 
         Ok(string sb)
