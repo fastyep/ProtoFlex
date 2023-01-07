@@ -27,7 +27,7 @@ let private sysTypes = [ ".google.protobuf.Empty" ]
 
 let private split =
     Some
-    >> Option.filter (Seq.contains >> (|>) sysTypes)
+    >> Option.filter (Seq.contains >> (|>) sysTypes >> not)
     >> Option.map (fun a -> a.Split '.' |> Seq.last)
 
 let rec genType (f: FieldDescriptorProto) =
