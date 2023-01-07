@@ -23,7 +23,12 @@ open System.Threading.Tasks
 [<Literal>]
 let private space = "    "
 
-let private split (a: string) = a.Split '.' |> Seq.last
+let private sysTypes = [ ".google.protobuf.Empty" ]
+
+let private split =
+    Some
+    >> Option.filter (Seq.contains >> (|>) sysTypes)
+    >> Option.map (fun a -> a.Split '.' |> Seq.last)
 
 let rec genType (f: FieldDescriptorProto) =
     (f.label,
@@ -38,10 +43,10 @@ let rec genType (f: FieldDescriptorProto) =
      | FieldDescriptorProto.Type.TypeBool -> nameof bool
      | FieldDescriptorProto.Type.TypeString -> nameof string
      | FieldDescriptorProto.Type.TypeGroup -> nameof double
-     | FieldDescriptorProto.Type.TypeMessage -> split f.TypeName
+     | FieldDescriptorProto.Type.TypeMessage -> split f.TypeName |> Option.defaultValue "unit"
      | FieldDescriptorProto.Type.TypeBytes -> "byte []"
      | FieldDescriptorProto.Type.TypeUint32 -> nameof uint32
-     | FieldDescriptorProto.Type.TypeEnum -> split f.TypeName
+     | FieldDescriptorProto.Type.TypeEnum -> split f.TypeName |> Option.defaultValue "Enum"
      | FieldDescriptorProto.Type.TypeSfixed32 -> nameof int
      | FieldDescriptorProto.Type.TypeSfixed64 -> nameof int64
      | FieldDescriptorProto.Type.TypeSint32 -> nameof int
@@ -53,13 +58,10 @@ let rec genType (f: FieldDescriptorProto) =
 
 let genEnumType (en: EnumDescriptorProto) =
     let sb =
-        StringBuilder()
-            .AppendLine("[<DataContract>]")
-            .AppendLine($"type {en.Name} =")
+        StringBuilder().AppendLine("[<DataContract>]").AppendLine($"type {en.Name} =")
 
     for op in en.Values do
-        sb.AppendLine $"{space}| {op.Name} = {op.Number}"
-        |> ignore
+        sb.AppendLine $"{space}| {op.Name} = {op.Number}" |> ignore
 
     string sb
 
@@ -98,7 +100,12 @@ let genService package (srv: ServiceDescriptorProto) =
             .AppendLine($"type I{srv.Name} =")
 
     for rpc in srv.Methods do
-        sb.AppendLine $"{space}abstract member {rpc.Name}: {split rpc.InputType} -> Task<{split rpc.OutputType}>"
+        let input = split rpc.InputType |> Option.defaultValue "unit"
+
+        let output =
+            split rpc.OutputType |> Option.map (sprintf "<%s>") |> Option.defaultValue ""
+
+        sb.AppendLine $"{space}abstract member {rpc.Name}: {input} -> Task{output}"
         |> ignore
 
     string sb
@@ -114,8 +121,7 @@ let genTemplate (name_space: string option) (protos: list<string * TextReader>) 
     match set.GetErrors() with
     | errors when (errors.Length > 0) -> Error errors
     | _ ->
-        let name_space =
-            defaultArg name_space set.Files[0].Package
+        let name_space = defaultArg name_space set.Files[0].Package
 
         let sb =
             StringBuilder()
@@ -128,7 +134,8 @@ let genTemplate (name_space: string option) (protos: list<string * TextReader>) 
                 genEnumType en |> sb.AppendLine |> ignore
 
             for msg in file.MessageTypes do
-                genMsgType msg |> sb.AppendLine |> ignore
+                if sysTypes |> Seq.contains $".{file.Package}.{msg.Name}" |> not then
+                    genMsgType msg |> sb.AppendLine |> ignore
 
             for srv in file.Services do
                 genService file.Package srv |> sb.Append |> ignore

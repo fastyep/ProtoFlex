@@ -10,6 +10,7 @@ type CliArguments =
     | [<AltCommandLine "-i">] InputFile of path: string
     | [<AltCommandLine "-o"; Unique>] OutputFile of path: string
     | [<AltCommandLine "-n"; Unique>] Namespace of name: string
+
     interface IArgParserTemplate with
         member s.Usage =
             match s with
@@ -22,8 +23,7 @@ let program_name = "pflex"
 
 [<EntryPoint>]
 let main args =
-    let parser =
-        ArgumentParser.Create<CliArguments> program_name
+    let parser = ArgumentParser.Create<CliArguments> program_name
 
     try
         let result = parser.ParseCommandLine args
@@ -32,8 +32,7 @@ let main args =
             result.GetResults CliArguments.InputFile
             |> List.map (fun a -> Path.GetFileName a, File.OpenText a |> unbox)
 
-        let name_space =
-            result.TryGetResult CliArguments.Namespace
+        let name_space = result.TryGetResult CliArguments.Namespace
 
         match result.TryGetResult CliArguments.OutputFile with
         | Some output when (input.Length > 0) ->
@@ -47,7 +46,7 @@ let main args =
         | _ ->
             printfn
                 $"Output and at least one Input files should be specified! Use {program_name} --help to check list of available arguments."
-    with
-    | :? ArguParseException as e -> printfn $"%s{e.Message}"
+    with :? ArguParseException as e ->
+        printfn $"%s{e.Message}"
 
     0
