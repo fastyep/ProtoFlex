@@ -1,15 +1,20 @@
 ﻿module ProtoFlex.CLI
 
+open System
 open System.IO
+open System.Reflection
 open Argu
-open Argu.ArguAttributes
 open ProtoFlex.Generator
+
+[<Literal>]
+let program_name = "pflex"
 
 [<RequireQualifiedAccess>]
 type CliArguments =
     | [<AltCommandLine "-i">] InputFile of path: string
     | [<AltCommandLine "-o"; Unique>] OutputFile of path: string
     | [<AltCommandLine "-n"; Unique>] Namespace of name: string
+    | [<AltCommandLine "-v"; Unique>] Version
 
     interface IArgParserTemplate with
         member s.Usage =
@@ -17,9 +22,7 @@ type CliArguments =
             | InputFile _ -> "path to proto files to build."
             | OutputFile _ -> "path where to write final FSharp types bundle."
             | Namespace _ -> "namespace that will be used in final bundle file."
-
-[<Literal>]
-let program_name = "pflex"
+            | Version -> $"view {program_name} current version."
 
 [<EntryPoint>]
 let main args =
@@ -44,8 +47,13 @@ let main args =
                 printfn "Errors during parsing proto file: "
                 err |> Seq.iter (printfn "\t%A")
         | _ ->
-            printfn
-                $"Output and at least one Input files should be specified! Use {program_name} --help to check list of available arguments."
+            match result.TryGetResult CliArguments.Version with
+            | Some _ ->
+                Assembly.GetAssembly(typeof<CliArguments>).GetName().Version.ToString()
+                |> printfn "%s"
+            | None ->
+                printfn
+                    $"Output and at least one Input files should be specified! Use {program_name} --help to check list of available arguments."
     with :? ArguParseException as e ->
         printfn $"%s{e.Message}"
 

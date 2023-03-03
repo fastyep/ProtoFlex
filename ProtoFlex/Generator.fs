@@ -1,5 +1,6 @@
 ﻿module ProtoFlex.Generator
 
+open System
 open System.IO
 open System.Text
 open Google.Protobuf.Reflection
@@ -23,12 +24,18 @@ open System.Threading.Tasks
 [<Literal>]
 let private space = "    "
 
-let private sysTypes = [ ".google.protobuf.Empty" ]
+let private sysTypes =
+    dict
+        [ ".google.protobuf.Empty", null
+          ".google.protobuf.Timestamp", "DateTime"
+          "google.protobuf.Duration", "TimeSpan" ]
 
-let private split =
-    Some
-    >> Option.filter (Seq.contains >> (|>) sysTypes >> not)
-    >> Option.map (fun a -> a.Split '.' |> Seq.last)
+let private split t =
+    match sysTypes.TryGetValue t with
+    | true, t -> t
+    | _ -> t.Split '.' |> Seq.last
+    |> Some
+    |> Option.filter (String.IsNullOrEmpty >> not)
 
 let rec genType (f: FieldDescriptorProto) =
     (f.label,
@@ -134,7 +141,7 @@ let genTemplate (name_space: string option) (protos: list<string * TextReader>) 
                 genEnumType en |> sb.AppendLine |> ignore
 
             for msg in file.MessageTypes do
-                if sysTypes |> Seq.contains $".{file.Package}.{msg.Name}" |> not then
+                if sysTypes.ContainsKey $".{file.Package}.{msg.Name}" |> not then
                     genMsgType msg |> sb.AppendLine |> ignore
 
             for srv in file.Services do
