@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Text
 open Google.Protobuf.Reflection
+open ProtoFlex.Extensions
 
 [<Literal>]
 let private disclaimer =
@@ -63,21 +64,16 @@ let rec genType (f: FieldDescriptorProto) =
         | FieldDescriptorProto.Label.LabelRepeated, b -> $"List<{b}>"
         | _, b -> b
 
-let genEnumType (en: EnumDescriptorProto) =
-    let sb =
-        StringBuilder().AppendLine("[<DataContract>]").AppendLine($"type {en.Name} =")
+let genEnumType (en: EnumDescriptorProto) (sb: StringBuilder) =
+    let sb = sb.AppendLine("[<DataContract>]").AppendLine($"type {en.Name} =")
 
     for op in en.Values do
         sb.AppendLine $"{space}| {op.Name} = {op.Number}" |> ignore
 
-    string sb
 
-
-let genMsgType (msg: DescriptorProto) =
+let genMsgType (msg: DescriptorProto) (sb: StringBuilder) =
     let sb =
-        StringBuilder()
-            .AppendLine("[<DataContract; CLIMutable>]")
-            .AppendLine($"type {msg.Name} =")
+        sb.AppendLine("[<DataContract; CLIMutable>]").AppendLine($"type {msg.Name} =")
 
     msg.Fields
     |> Seq.iteri (fun i f ->
@@ -98,11 +94,9 @@ let genMsgType (msg: DescriptorProto) =
             sb.AppendLine()
         |> ignore)
 
-    string sb
-
-let genService package (srv: ServiceDescriptorProto) =
+let genService package (srv: ServiceDescriptorProto) (sb: StringBuilder) =
     let sb =
-        StringBuilder()
+        sb
             .AppendLine($"[<ServiceContract(Name = \"%s{package}.{srv}\")>]")
             .AppendLine($"type I{srv.Name} =")
 
@@ -115,9 +109,8 @@ let genService package (srv: ServiceDescriptorProto) =
         sb.AppendLine $"{space}abstract member {rpc.Name}: {input} -> Task{output}"
         |> ignore
 
-    string sb
 
-let genTemplate (name_space: string option) (protos: list<string * TextReader>) =
+let genTemplate (hook: ExtensionHook) (name_space: string option) (protos: list<string * TextReader>) =
     let set = FileDescriptorSet()
 
     for n, r in protos do
@@ -138,13 +131,16 @@ let genTemplate (name_space: string option) (protos: list<string * TextReader>) 
 
         for file in set.Files do
             for en in file.EnumTypes do
-                genEnumType en |> sb.AppendLine |> ignore
+                genEnumType en sb
+                GenEnumType en |> hook sb
 
             for msg in file.MessageTypes do
                 if sysTypes.ContainsKey $".{file.Package}.{msg.Name}" |> not then
-                    genMsgType msg |> sb.AppendLine |> ignore
+                    genMsgType msg sb
+                    GenMsgType msg |> hook sb
 
             for srv in file.Services do
-                genService file.Package srv |> sb.Append |> ignore
+                genService file.Package srv sb
+                GenService(file.Package, srv) |> hook sb
 
         Ok(string sb)

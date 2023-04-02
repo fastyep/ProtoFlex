@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Reflection
 open Argu
+open ProtoFlex.Extensions
 open ProtoFlex.Generator
 
 [<Literal>]
@@ -14,6 +15,7 @@ type CliArguments =
     | [<AltCommandLine "-i">] InputFile of path: string
     | [<AltCommandLine "-o"; Unique>] OutputFile of path: string
     | [<AltCommandLine "-n"; Unique>] Namespace of name: string
+    | [<AltCommandLine "-e">] Extension of name: string
     | [<AltCommandLine "-v"; Unique>] Version
 
     interface IArgParserTemplate with
@@ -23,6 +25,9 @@ type CliArguments =
             | OutputFile _ -> "path where to write final FSharp types bundle."
             | Namespace _ -> "namespace that will be used in final bundle file."
             | Version -> $"view {program_name} current version."
+            | Extension _ -> "use extension generator name and args"
+
+let extensions = Map [ "Sql.Props", SqlProps.hook ]
 
 [<EntryPoint>]
 let main args =
@@ -37,9 +42,19 @@ let main args =
 
         let name_space = result.TryGetResult CliArguments.Namespace
 
+        let extensions: ExtensionHook =
+            result.GetResults CliArguments.Extension
+            |> Seq.fold
+                (fun h n sb e ->
+                    extensions.TryFind n
+                    |> Option.iter (fun hook -> hook sb e)
+
+                    h sb e)
+                (fun _ -> ignore)
+
         match result.TryGetResult CliArguments.OutputFile with
         | Some output when (input.Length > 0) ->
-            match genTemplate name_space input with
+            match genTemplate extensions name_space input with
             | Ok temp ->
                 File.WriteAllText(output, temp)
                 printfn $"File {Path.GetFileName output} has been successfully generated."
